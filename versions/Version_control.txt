@@ -1,0 +1,10 @@
+Versions with their use-case
+
+1.0: 
+Is for shotgun DNA metagenome classification with kraken/bracken
+
+2.0
+Is for shotgun DNA metagenome in combination with RNA transcripts analysis.
+
+3.0
+eggnog analysis for DNA/RNA
