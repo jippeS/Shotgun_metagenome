@@ -1,0 +1,7 @@
+inputdir: "/export/projects/16S/CDAV/BMKGENEXW2026060104_08_07_2026/"
+naming_convention: "CDAV_BMKGENEXW2026060104_"
+tooldir: "/export/jippe/jsil/programs/wetsus_packages/"
+read_length: 150
+CONF_THRESH: 0.5
+kraken2_db: "/export/databases/cache:kraken_standard"
+bracken_db: "/export/databases/cache:bracken_standard"
