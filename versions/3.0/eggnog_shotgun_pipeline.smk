@@ -1,11 +1,5 @@
 configfile: "config.yaml"
 
-from os import listdir
-from os.path import isfile, join
-import os
-import re
-import argparse
-import sys
 def is_already_organized(folder):
     """Check if folder already contains sample/input/*.fastq.gz"""
     for item in folder.iterdir():
@@ -62,11 +56,7 @@ def change_names(folder):
 
 def list_sample_folders(folder):
     ignore = {"output", "logs", ".snakemake", "temp"}
-
-    return [
-        f.name for f in folder.iterdir()
-        if f.is_dir() and f.name not in ignore
-    ]
+    return [f.name for f in folder.iterdir() if f.is_dir() and f.name not in ignore]
 
 
 folder = Path(config["inputdir"])
@@ -102,21 +92,8 @@ conf_thresh = str(config["CONF_THRESH"] )
 
 rule all:
     input:
-        expand(config["inputdir"] + "{fq_file}/output/processed/{fq_file}_merged_HTSeq_gene_counts.txt", fq_file=fq_files)
-        # expand(config["inputdir"] + "output/processed/emapper_output/merged_dna.emapper.annotations", fq_file=fq_files),
-
-        #temporary removed because of error of indexing a namesorted bam.
-        # expand(config["inputdir"] + "{fq_file}/output/processed/alignment/{fq_file}_sorted_alignment.bam.bai", fq_file=fq_files),
-
-        # expand(config["inputdir"] + "{fq_file}/output/artefacts/" + config["naming_convention"] + "{fq_file}_reads.qza", fq_file=fq_files),
-        # expand(config["inputdir"] + "{fq_file}/output/processed/{fq_file}_" + config["naming_convention"] + "read_aln_contigs.qza", fq_file=fq_files),
-
-        # expand(config["inputdir"] + "{fq_file}/output/processed/emapper_output/{fq_file}_merged_dna.emapper.genepred.fasta", fq_file=fq_files),
-        # expand(config["inputdir"] + "{fq_file}/output/processed/emapper_output/{fq_file}_merged_dna.emapper.genepred.gff" , fq_file=fq_files),
-        # expand(config["inputdir"] + "{fq_file}/output/processed/emapper_output/{fq_file}_merged_dna_annotations_contig.qza", fq_file=fq_files),
-        # config["inputdir"] + "output/processed/emapper_output/merged_dna.emapper.seed_orthologs",
-
-        # config["inputdir"] + "output/processed/emapper_output/merged_dna_annotations_contig.qza"
+        expand(config["inputdir"] + "{fq_file}/output/processed/{fq_file}_merged_HTSeq_gene_counts.txt", fq_file=fq_files),
+        expand(config["inputdir"] + "{fq_file}/output/processed/{fq_file}_combined_htseq_annotations.txt", fq_file=fq_files)
 
 
 rule fastqc_forward:
@@ -203,7 +180,6 @@ rule pre_process1:
         "   */output/processed/ &"
         "@#"
     shell:
-        # "sbatch bash_scripts/remove_g_seq.sh {params.file_path1} {params.output_folder};"
         "sbatch bash_scripts/remove_g_v2.sh {params.file_path1} {params.output_folder};"
         "python3 {config[tooldir]}wait_file.py {output} --seconds=300;"
 
@@ -225,7 +201,6 @@ rule pre_process2:
         "   */output/processed/ &"
         "@#"
     shell:
-        # "sbatch bash_scripts/remove_g_seq.sh {params.file_path1} {params.output_folder};"
         "sbatch bash_scripts/remove_g_v2.sh {params.file_path1} {params.output_folder};"
         "python3 {config[tooldir]}wait_file.py {output} --seconds=300;"
 
@@ -391,21 +366,6 @@ rule make_merged:
         'sbatch bash_scripts/merging.sh {params.forward_output_P} {params.fw_output_merged} {params.reverse_output_P} {params.rv_output_merged};'
         'python3 {config[tooldir]}wait_file.py {params.fw_output_merged} {params.rv_output_merged} --seconds=40;'
 
-# i am testing if i can add the ids of the samples to the merged manifest and see if the index will be able to accept it. (if it doesnt change this part back.
-# rule make_artefact_merged:
-#     input:
-#         expand(config["inputdir"] + "output/steps/{fq_file}_merged_fw_done.txt",fq_file=fq_files)
-#     output:
-#         config["inputdir"] + "output/processed/" + config["naming_convention"] + "merged_reads.qza"
-#     conda:
-#         "environments/qiime2_metagenome-2024.10.yaml"
-#     params:
-#         manifest = config["inputdir"] + "output/processed/manifest.txt"
-#     shell:
-#         'printf "sample-id,absolute-filepath,direction\nCombined_samples,{rules.make_merged.params.fw_output_merged},forward\nCombined_samples,{rules.make_merged.params.rv_output_merged},reverse\n" > {params.manifest};'
-#         'sbatch bash_scripts/create_artifact.sh {params.manifest} {output};'
-#         'python3 {config[tooldir]}wait_file.py {output} --seconds=40;'
-
 rule make_artefact_merged:
     input:
         expand(config["inputdir"] + "output/steps/{fq_file}_merged_fw_done.txt",fq_file=fq_files)
@@ -488,7 +448,7 @@ rule mapping_contigs:
         "environments/qiime2_metagenome-2024.10.yaml"
     params:
         #max 8
-        thread = 8
+        thread = 16
     message:
         """@#"
         "Map reads to contigs:   "
@@ -502,7 +462,6 @@ rule mapping_contigs:
             --verbose"
         "@#"""
     shell:
-        # 'sbatch bash_scripts/map_reads_to_contigs.sh {input.input_index} {rules.trimmomatic.params.forward_output_P} {rules.trimmomatic.params.reverse_output_P} {output} {params.thread};'
         'sbatch bash_scripts/map_reads_to_contigs.sh {input.input_index} {input.input_sample} {output} {params.thread};'
         'python3 {config[tooldir]}wait_file.py {output} --seconds=40;'
 
@@ -523,7 +482,6 @@ rule export_data:
         "   --output-path {params.output_dir} "
         "@#"
     shell:
-        # 'sbatch bash_scripts/map_reads_to_contigs.sh {input.input_index} {rules.trimmomatic.params.forward_output_P} {rules.trimmomatic.params.reverse_output_P} {output} {params.thread};'
         'sbatch bash_scripts/export.sh {input} {params.output_dir};'
         'python3 {config[tooldir]}wait_file.py {output} --seconds=40;'
 
@@ -543,6 +501,11 @@ rule emapper:
         temp_dir = "/export/jippe/temp/{fq_file}/",
         orthologs = config["inputdir"] + "{fq_file}/output/processed/emapper_output/merged_dna.emapper.seed_orthologs",
         moved_dir = config["inputdir"] + "{fq_file}/output/processed/emapper_output/orthologs"
+    resources:
+        nodes = 1,
+        ntasks_per_node = 1,
+        cpus_per_task = 8,
+        slurm_extra="--nodelist=cn2"
     message:
         """@#
         "eggnog mapping:   "
@@ -557,12 +520,11 @@ rule emapper:
         "   --cpu {params.thread}"
         "@#"""
     shell:
-        # 'sbatch bash_scripts/map_reads_to_contigs.sh {input.input_index} {rules.trimmomatic.params.forward_output_P} {rules.trimmomatic.params.reverse_output_P} {output} {params.thread};'
         'mkdir -p {params.temp_dir};'
-        'sbatch bash_scripts/emapper_manual.sh {input} merged_dna {params.output_dir} {params.temp_dir} {params.thread};'
-        'python3 {config[tooldir]}wait_file.py {output.fasta} {output.ggf} {output.hits} --seconds=40;'
+        'python3 eggnog-mapper/emapper.py -i {input} -o merged_dna -m diamond --dmnd_db "/export/databases/cache/data/979a93e7-e318-437a-9e35-37c981f7d787/data/ref_db.dmnd" --data_dir "/export/databases/cache/data/9fc589c8-fbc9-40b6-8660-a11fcedc1f50/data/" --itype metagenome --output_dir {params.output_dir} --temp_dir {params.temp_dir} --cpu {params.thread} --override;'
         'mkdir -p {params.moved_dir};'
         'mv {params.orthologs} {params.moved_dir};'
+
 
 rule import_hits:
     input:
@@ -673,27 +635,6 @@ rule sort_bam:
         'sbatch bash_scripts/sort_bam.sh {input} {output};'
         'python3 {config[tooldir]}wait_file.py {output} --seconds=40;'
 
-# rule sort_bam_index:
-#     input:
-#         rules.sort_bam.output
-#     output:
-#         config["inputdir"] + "{fq_file}/output/processed/alignment/{fq_file}_sorted_alignment.bam.bai"
-#     conda:
-#         "environments/qiime2_2024.5_moshpit.yaml"
-#     params:
-#         cpu = 12
-#     message:
-#         "@#"
-#         "Index bam:   "
-#         "samtools index "
-#         "   -@ {params.cpu} "
-#         "   -o {output} "
-#         "   {input}"
-#         "@#"
-#     shell:
-#         # 'sbatch bash_scripts/map_reads_to_contigs.sh {input.input_index} {rules.trimmomatic.params.forward_output_P} {rules.trimmomatic.params.reverse_output_P} {output} {params.thread};'
-#         'sbatch bash_scripts/bam_index.sh {params.cpu} {output} {input};'
-#         'python3 {config[tooldir]}wait_file.py {output} --seconds=40;'
 
 rule htseq_count:
     input:
@@ -705,7 +646,7 @@ rule htseq_count:
         "environments/multiqc.yaml"
     message:
         "@#"
-        "   "
+        "Index bam:   "
         "htseq-count "
         "   -f bam "
         "   -r name "
@@ -717,3 +658,13 @@ rule htseq_count:
         # 'sbatch bash_scripts/map_reads_to_contigs.sh {input.input_index} {rules.trimmomatic.params.forward_output_P} {rules.trimmomatic.params.reverse_output_P} {output} {params.thread};'
         'sbatch bash_scripts/htseq_count.sh  {input.aln_bam} {input.gff_file} {output};'
         'python3 {config[tooldir]}wait_file.py {output} --seconds=40;'
+
+
+rule combine_count_results:
+    input:
+        htseq_count = rules.htseq_count.output,
+        annotations = rules.export_data_annotated.output
+    output:
+        config["inputdir"] + "{fq_file}/output/processed/{fq_file}_combined_htseq_annotations.txt"
+    shell:
+        "python3 python_scripts/combine_htseq_anno.py --input_htseq={input.htseq_count} --input_anno={input.annotations} --output={output}"
