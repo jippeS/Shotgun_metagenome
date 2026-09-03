@@ -17,7 +17,6 @@ def change_names(folder):
 
     suffixes_old = ["_1.fq.gz", "_2.fq.gz"]
     suffixes_new = ["_1.fastq.gz", "_2.fastq.gz"]
-
     dry_run = False
 
     if not mapping_file.exists():
@@ -93,7 +92,7 @@ conf_thresh = str(config["CONF_THRESH"] )
 rule all:
     input:
         expand(config["inputdir"] + "{fq_file}/output/processed/{fq_file}_merged_HTSeq_gene_counts.txt", fq_file=fq_files),
-        expand(config["inputdir"] + "{fq_file}/output/processed/{fq_file}_combined_htseq_annotations.txt", fq_file=fq_files)
+        expand(config["inputdir"] + "{fq_file}/output/processed/{fq_file}_combined_htseq_annotations_orthologs.txt", fq_file=fq_files)
 
 
 rule fastqc_forward:
@@ -491,7 +490,8 @@ rule emapper:
     output:
         fasta = config["inputdir"] + "{fq_file}/output/processed/emapper_output/merged_dna.emapper.genepred.fasta",
         ggf = config["inputdir"] + "{fq_file}/output/processed/emapper_output/merged_dna.emapper.genepred.gff",
-        hits =  config["inputdir"] + "{fq_file}/output/processed/emapper_output/merged_dna.emapper.hits"
+        hits =  config["inputdir"] + "{fq_file}/output/processed/emapper_output/merged_dna.emapper.hits",
+        orthologs = config["inputdir"] + "{fq_file}/output/processed/emapper_output/orthologs/merged_dna.emapper.seed_orthologs"
     conda:
         "environments/eggnog.yaml"
     params:
@@ -663,8 +663,9 @@ rule htseq_count:
 rule combine_count_results:
     input:
         htseq_count = rules.htseq_count.output,
-        annotations = rules.export_data_annotated.output
+        annotations = rules.export_data_annotated.output,
+        orthologs = rules.emapper.output.orthologs
     output:
-        config["inputdir"] + "{fq_file}/output/processed/{fq_file}_combined_htseq_annotations.txt"
+        config["inputdir"] + "{fq_file}/output/processed/{fq_file}_combined_htseq_annotations_orthologs.txt"
     shell:
-        "python3 python_scripts/combine_htseq_anno.py --input_htseq={input.htseq_count} --input_anno={input.annotations} --output={output}"
+        "python3 python_scripts/combine_htseq_anno.py --input_htseq={input.htseq_count} --input_anno={input.annotations} --input_ortho={input.orthologs} --output={output}"
